@@ -47,6 +47,42 @@ suite('Functional Tests', function () {
             });
     });
 
+    // Test liking the same stock twice
+    test('GET /api/stock-prices/ liking the same stock twice', function (done) {
+        chai.request(server)
+            .get('/api/stock-prices/')
+            .query({
+                stock: 'GOOG',
+                like: true
+            })
+            .end(function (err, res) {
+                const firstLikes = res.body.stockData.likes;
+
+                chai.request(server)
+                    .get('/api/stock-prices/')
+                    .query({
+                        stock: 'GOOG',
+                        like: true
+                    })
+                    .end(function (err, res) {
+                        assert.equal(res.status, 200);
+                        assert.isObject(res.body);
+                        assert.property(res.body, 'stockData');
+                        assert.isObject(res.body.stockData);
+                        assert.property(res.body.stockData, 'likes');
+
+                        // Verify likes count didn't increase
+                        assert.equal(
+                            res.body.stockData.likes,
+                            firstLikes,
+                            'Likes should not increase on duplicate like'
+                        );
+
+                        done();
+                    });
+            });
+    });
+
     // Test with two stocks
     test('GET /api/stock-prices/ with two stocks', function (done) {
         chai.request(server)
