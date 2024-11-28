@@ -1,12 +1,28 @@
 'use strict';
 const https = require('https');
 
-module.exports = function (app) {
+// In-memory storage for likes (in a real app, you'd use a database)
+const likesStorage = {};
 
+module.exports = function (app) {
   app.route('/api/stock-prices')
     .get(function (req, res) {
       const stock = req.query.stock.toLowerCase();
-      const like = req.query.like === 'true' ? 1 : -1;
+      const like = req.query.like === 'true' ? 1 : 0;
+      const clientIP = req.ip;
+
+      // Initialize storage for this stock if not exists
+      if (!likesStorage[stock]) {
+        likesStorage[stock] = new Set();
+      }
+
+      // Check and add like if requested
+      if (like === 1) {
+        // Only add the like if this IP hasn't already liked the stock
+        if (!likesStorage[stock].has(clientIP)) {
+          likesStorage[stock].add(clientIP);
+        }
+      }
 
       const options = {
         hostname: 'stock-price-checker-proxy.freecodecamp.rocks',
@@ -26,25 +42,15 @@ module.exports = function (app) {
         response.on('end', () => {
           try {
             const stockData = JSON.parse(data);
-            //console.log(stockData)
-            // Send response in the expected format
 
-            if (req.query.like === 'true') {
-              res.json({
-                stockData: {
-                  stock: stock.toUpperCase(),
-                  price: stockData.latestPrice,
-                  likes: like
-                }
-              });
-            } else {
-              res.json({
-                stockData: {
-                  stock: stock.toUpperCase(),
-                  price: stockData.latestPrice
-                }
-              });
-            }
+            // Send response with stock data and likes
+            res.json({
+              stockData: {
+                stock: stock.toUpperCase(),
+                price: stockData.latestPrice,
+                likes: likesStorage[stock] ? likesStorage[stock].size : 0
+              }
+            });
           } catch (error) {
             // Handle parsing errors
             res.status(500).json({
@@ -67,5 +73,4 @@ module.exports = function (app) {
       // End the request
       request.end();
     });
-
 };
